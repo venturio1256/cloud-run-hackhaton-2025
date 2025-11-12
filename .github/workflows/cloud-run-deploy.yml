@@ -10,7 +10,7 @@ on:
 
 env:
   # IMPORTANT: Replace these placeholder values with your actual GCP information.
-  PROJECT_ID: 'YOUR_GCP_PROJECT_ID'
+  PROJECT_ID: 'cloudrun-hackathon-2025'
   SERVICE_NAME: 'whatz-on-doc-frontend'
   REGION: 'us-central1' # e.g., us-central1, europe-west2
   
