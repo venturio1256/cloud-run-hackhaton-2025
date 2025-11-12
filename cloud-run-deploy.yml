@@ -1,0 +1,61 @@
+# This workflow builds and deploys your application to Google Cloud Run
+# when you push a change to the 'main' branch.
+
+name: Deploy Frontend to Google Cloud Run
+
+on:
+  push:
+    branches:
+      - main
+
+env:
+  # IMPORTANT: Replace these placeholder values with your actual GCP information.
+  PROJECT_ID: 'YOUR_GCP_PROJECT_ID'
+  SERVICE_NAME: 'whatz-on-doc-frontend'
+  REGION: 'us-central1' # e.g., us-central1, europe-west2
+  
+  # This is for Google Artifact Registry, where your container images will be stored.
+  GAR_LOCATION: 'us-central1' # Can be the same as your region
+  REPOSITORY_NAME: 'whatz-on-doc-repo'
+
+jobs:
+  deploy:
+    name: Build and Deploy to Cloud Run
+    runs-on: ubuntu-latest
+    
+    # Add "id-token" with the write permission.
+    # This is required for Workload Identity Federation.
+    permissions:
+      contents: 'read'
+      id-token: 'write'
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Authenticate to Google Cloud
+        id: auth
+        uses: google-github-actions/auth@v2
+        with:
+          # IMPORTANT: You will need to create these secrets in your GitHub repository settings.
+          # See the setup guide for instructions.
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+        
+      # This command uses Google Cloud Build to build your Docker image and push it to
+      # Artifact Registry. This is generally faster and more secure than building inside the runner.
+      - name: Build and Push Docker image
+        run: |-
+          gcloud builds submit --tag ${{ env.GAR_LOCATION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPOSITORY_NAME }}/${{ env.SERVICE_NAME }}:${{ github.sha }}
+
+      # Deploy the newly built image to Cloud Run.
+      - name: Deploy to Cloud Run
+        run: |-
+          gcloud run deploy ${{ env.SERVICE_NAME }} \
+            --image ${{ env.GAR_LOCATION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPOSITORY_NAME }}/${{ env.SERVICE_NAME }}:${{ github.sha }} \
+            --region ${{ env.REGION }} \
+            --platform managed \
+            --allow-unauthenticated
